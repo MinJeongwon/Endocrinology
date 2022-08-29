@@ -17,7 +17,8 @@ All of the models on the [Huggingface](https://huggingface.co/transformers) that
 Models = {
     "BERT base uncased": "bert-base-uncased",
     "RoBERTa": "roberta-base",
-    "Bio_ClinicalBERT": "emilyalsentzer/Bio_ClinicalBERT"",
+    "Clinical BERT": "clinical_bert",
+    "BioBERT": "biobert",
     "BleuBERT base uncased Pubmed": "bionlp/bluebert_pubmed_uncased_L-12_H-768_A-12",
     "BleuBERT base uncased Pubmed MIMIC": "bionlp/bluebert_pubmed_mimic_uncased_L-12_H-768_A-12",
     "SciBERT": "allenai/scibert_scivocab_uncased",
