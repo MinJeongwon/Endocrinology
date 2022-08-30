@@ -150,7 +150,6 @@ def main():
     parser.add_argument('--n_warmup_steps', type=int, default=0)
     parser.add_argument("--local_rank", type=int, default=-1, help="local_rank for distributed training on gpus")
     args = parser.parse_args()
-    args.model = args.model.lower()
 
 
     # make output directories
@@ -170,7 +169,8 @@ def main():
 
 
     # split data into train/dev/test
-    split_data(args)
+    if len(os.listdir(args.source_data_dir))==1:
+        split_data(args)
 
 
     # train dataset
@@ -249,7 +249,7 @@ def main():
     t0 = time.time()
     for epoch in range(args.epoch):
         logger.info(f'Epoch {epoch + 1}/{args.epoch}')
-        print(f'Epoch {epoch + 1}/{args.epoch}')
+        print(f'\nEpoch {epoch + 1}/{args.epoch}')
 
         train_acc, train_loss = train(
                                 model,
@@ -296,7 +296,7 @@ def main():
 
     # best score
     logger.info("Best Epoch: {}".format(best_epoch))
-    logger.info("Best Accuracy: {}".format(best_accuracy))
+    logger.info("Best Accuracy: {:.3f}".format(best_accuracy))
 
 
     # load best model
@@ -328,7 +328,7 @@ def main():
     # accuracy and classification report
     logger.info('=' * 70)
     accuracy = accuracy_score(y_test, y_pred)
-    print("Best Accuracy on the Validation set: {}".format(accuracy))
+    print("Best Accuracy on the Validation set: {:.3f}".format(accuracy))
     logger.info("Classification Report")
     logger.info("\n{}\n".format(classification_report(y_test, y_pred, target_names = class_values)))
     logger.info('=' * 70)

@@ -69,7 +69,6 @@ def main():
     parser.add_argument('--res', type=str, default='outputs')
     parser.add_argument("--local_rank", type=int, default=-1, help="local_rank for distributed training on gpus")
     args = parser.parse_args()
-    args.model = args.model.lower()
 
 
     # log settings
@@ -139,7 +138,7 @@ def main():
         pred_df["weight_class_"+str(i)] = y_pred_probs[:, i]
     pred_df.to_excel(os.path.join(args.res, args.model+"_"+args.type) + "/classification_result_test.xlsx") 
     accuracy = accuracy_score(y_test, y_pred)
-    print("Accuracy on the Test set: {}".format(accuracy))
+    print("Accuracy on the Test set: {:.3f}".format(accuracy))
 
 
     # classification report

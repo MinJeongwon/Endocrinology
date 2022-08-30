@@ -1,6 +1,6 @@
 #Define the path of each parameter
 python train.py \
-     --model bert-base-uncased \
+     --model bionlp/bluebert_pubmed_uncased_L-12_H-768_A-12 \
      --source_data_dir ./source/ \
      --max_sequence_len 512\
      --type title_abst \
@@ -12,5 +12,4 @@ python train.py \
      --log log \
      --checkpoint checkpoint \
      --lr 2e-5 \
-     --n_warmup_steps 0 \
-     --local_rank -1 
+     --n_warmup_steps 0

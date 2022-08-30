@@ -11,21 +11,6 @@ Both train.py and inference.py scripts receive the datasets in .csv format with 
 |25,630,229|thyroid|Salivary gland dysfunction after radioactive iodine (I-131) therapy in patients following total thyroidectomy: emphasis on radioactive iodine therapy dose.|...|
 |25,561,730|diabetes|Ligand Binding Pocket Formed by Evolutionarily Conserved Residues in the Glucagon-like Peptide-1 (GLP-1) Receptor Core Domain.|...|
 
-## Models
-All of the models on the [Huggingface](https://huggingface.co/transformers) that support `AutoModelForSequenceClassification` are supported by this repository and can be used by setting the model parameter of the train.py with the appropriate name of the model. Some of them are listed below and the others can be found on Huggingface website.
-```
-Models = {
-    "BERT base uncased": "bert-base-uncased",
-    "RoBERTa": "roberta-base",
-    "Clinical BERT": "clinical_bert",
-    "BioBERT": "biobert",
-    "BleuBERT base uncased Pubmed": "bionlp/bluebert_pubmed_uncased_L-12_H-768_A-12",
-    "BleuBERT base uncased Pubmed MIMIC": "bionlp/bluebert_pubmed_mimic_uncased_L-12_H-768_A-12",
-    "SciBERT": "allenai/scibert_scivocab_uncased",
-    "Clinical Assertion / Negation Classification BERT": "bvanaken/clinical-assertion-negation-bert"
-}
-```
-
 ## Environment
 ```shell
 conda env create --file environment.yaml
@@ -38,7 +23,7 @@ bash train.sh
 ```
 Please note that before executing the bash file, you need to define a set of files path in it.
 
-#### Option
+### Option
 ```
 --model                     bert-base-uncased, roberta-base, etc.
 --type                      whether to use both `title` and `abstract`(title_abst) for classification or just use `title`(title).
@@ -74,10 +59,27 @@ bash inference.sh
 --test_batch_size           test batch size.
 ```
 
+## Models
+All of the models on the [Huggingface](https://huggingface.co/transformers) that support `AutoModelForSequenceClassification` are supported by this repository and can be used by setting the model parameter of the train.py with the appropriate name of the model. Some of them are listed below and the others can be found on Huggingface website.
+```
+Models = {
+    "BERT base uncased": "bert-base-uncased",
+    "BioBERT": "dmis-lab/biobert-v1.1",
+    "SciBERT": "allenai/scibert_scivocab_uncased",
+    "BleuBERT": "bionlp/bluebert_pubmed_uncased_L-12_H-768_A-12",
+    "BleuBERT": "bionlp/bluebert_pubmed_mimic_uncased_L-12_H-768_A-12",
+    "PubMedBERT": "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract",
+    "PubMedBERT": "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext",
+    "ClinicalBERT": "emilyalsentzer/Bio_ClinicalBERT",
+    "RoBERTa": "roberta-base",
+    "Biomed RoBERTa": "allenai/biomed_roberta_base",
+```
+
 ## Results
 <table class="tg">
   <tr>
     <td class="tg-fymr" rowspan="2">Classifier</th>
+    <td class="tg-fymr" rowspan="2">Type</th>
     <td class="tg-fymr" rowspan="2">Accuracy</th>
     <td class="tg-fymr" rowspan="2">Precision</th>
     <td class="tg-fymr" rowspan="2">Recall</th>
@@ -85,53 +87,93 @@ bash inference.sh
   </tr>
 <tbody>
   <tr>
-    <td class="tg-xnov">BERT (base uncased)</td>
-    <td class="tg-oyjm"><b> 0.85 </td>
-    <td class="tg-oyjm"><b> 0.84 </td>
-    <td class="tg-oyjm"><b> 0.85 </td>
-    <td class="tg-oyjm"><b> 0.85 </td>
-  </tr>
-  <tr>
-    <td class="tg-xnov">RoBERTa</td>
-    <td class="tg-xnov"> </td>
-    <td class="tg-xnov"> </td>
-    <td class="tg-xnov"> </td>
-    <td class="tg-xnov"> </td>
-  </tr>
-  <tr>
-    <td class="tg-xnov">Bio_ClinicalBERT</td>
-    <td class="tg-xnov"> </td>
-    <td class="tg-xnov"> </td>
-    <td class="tg-xnov"> </td>
-    <td class="tg-xnov"> </td>
-  </tr>
-  <tr>
-    <td class="tg-xnov">BleuBERT Pubmed (base unccased)</td>
-    <td class="tg-xnov"> </td>
-    <td class="tg-xnov"> </td>
-    <td class="tg-xnov"> </td>
-    <td class="tg-xnov"> </td>
-  </tr>
-  <tr>
-    <td class="tg-xnov">BleuBERT Pubmed MIMIC (base unccased)</td>
-    <td class="tg-xnov"> </td>
-    <td class="tg-xnov"> </td>
-    <td class="tg-xnov"> </td>
-    <td class="tg-xnov"> </td>
-  </tr>
-  <tr>
-    <td class="tg-xnov">SciBERT (base unccased)</td>
-    <td class="tg-xnov"> </td>
-    <td class="tg-xnov"> </td>
-    <td class="tg-xnov"> </td>
-    <td class="tg-xnov"> </td>
+    <td class="tg-xnov">BERT (bert-base-uncased)</td>
+    <td class="tg-xnov"> title + abstract </td>
+    <td class="tg-xnov"> 0.85 </td>
+    <td class="tg-xnov"> 0.84 </td>
+    <td class="tg-xnov"> 0.85 </td>
+    <td class="tg-xnov"> 0.85 </td>
   </tr>
     <tr>
-    <td class="tg-xnov">Clinical Assertion/Negation Classification BERT</td>
-    <td class="tg-xnov"> </td>
-    <td class="tg-xnov"> </td>
-    <td class="tg-xnov"> </td>
-    <td class="tg-xnov"> </td>
+    <td class="tg-xnov">BERT (bert-base-uncased)</td>
+    <td class="tg-xnov"> title </td>
+    <td class="tg-xnov"> 0.83 </td>
+    <td class="tg-xnov"> 0.83 </td>
+    <td class="tg-xnov"> 0.83 </td>
+    <td class="tg-xnov"> 0.83 </td>
+  </tr>
+
+  <tr>
+    <td class="tg-xnov"><b>BioBERT (dmis-lab/biobert-v1.1)</td>
+    <td class="tg-xnov"><b> title + abstract </td>
+    <td class="tg-xnov"><b> 0.88 </td>
+    <td class="tg-xnov"><b> 0.88 </td>
+    <td class="tg-xnov"><b> 0.88 </td>
+    <td class="tg-xnov"><b> 0.88 </td>
+  </tr>
+  <tr>
+    <td class="tg-xnov">SciBERT (allenai/scibert_scivocab_uncased_title_abst)</td>
+    <td class="tg-xnov"> title + abstract </td>
+    <td class="tg-xnov"> 0.87 </td>
+    <td class="tg-xnov"> 0.87 </td>
+    <td class="tg-xnov"> 0.87 </td>
+    <td class="tg-xnov"> 0.87 </td>
+  </tr>
+  <tr>
+    <td class="tg-xnov">BleuBERT (bionlp/bluebert_pubmed_uncased_L-12_H-768_A-12)</td>
+    <td class="tg-xnov"> title + abstract </td>
+    <td class="tg-xnov"> 0.87 </td>
+    <td class="tg-xnov"> 0.87 </td>
+    <td class="tg-xnov"> 0.87 </td>
+    <td class="tg-xnov"> 0.87 </td>
+  </tr>
+  <tr>
+    <td class="tg-xnov">BleuBERT (bionlp/bluebert_pubmed_mimic_uncased_L-12_H-768_A-12)</td>
+    <td class="tg-xnov"> title + abstract </td>
+    <td class="tg-xnov"> 0.86 </td>
+    <td class="tg-xnov"> 0.85 </td>
+    <td class="tg-xnov"> 0.86 </td>
+    <td class="tg-xnov"> 0.85 </td>
+  </tr>
+  <tr>
+    <td class="tg-xnov">PubMedBERT (microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract)</td>
+    <td class="tg-xnov"> title + abstract </td>
+    <td class="tg-xnov"> 0.87 </td>
+    <td class="tg-xnov"> 0.87 </td>
+    <td class="tg-xnov"> 0.87 </td>
+    <td class="tg-xnov"> 0.87 </td>
+  </tr>
+  <tr>
+    <td class="tg-xnov">PubMedBERT (microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext)</td>
+    <td class="tg-xnov"> title + abstract </td>
+    <td class="tg-xnov"> 0.87 </td>
+    <td class="tg-xnov"> 0.86 </td>
+    <td class="tg-xnov"> 0.87 </td>
+    <td class="tg-xnov"> 0.86 </td>
+  </tr>
+  <tr>
+    <td class="tg-xnov">ClinicalBERT (emilyalsentzer/Bio_ClinicalBERT)</td>
+    <td class="tg-xnov"> title + abstract </td>
+    <td class="tg-xnov"> 0.85 </td>
+    <td class="tg-xnov"> 0.85 </td>
+    <td class="tg-xnov"> 0.85 </td>
+    <td class="tg-xnov"> 0.85 </td>
+  </tr>
+  <tr>
+    <td class="tg-xnov">RoBERTa (roberta-base)</td>
+    <td class="tg-xnov"> title + abstract </td>
+    <td class="tg-xnov"> 0.84 </td>
+    <td class="tg-xnov"> 0.85 </td>
+    <td class="tg-xnov"> 0.84 </td>
+    <td class="tg-xnov"> 0.84 </td>
+  </tr>
+  <tr>
+    <td class="tg-xnov">Biomed Roberta (allenai/biomed_roberta_base)</td>
+    <td class="tg-xnov"> title + abstract </td>
+    <td class="tg-xnov"> 0.84 </td>
+    <td class="tg-xnov"> 0.84 </td>
+    <td class="tg-xnov"> 0.84 </td>
+    <td class="tg-xnov"> 0.84 </td>
   </tr>
 </tbody>
 </table>
