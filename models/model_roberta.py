@@ -36,7 +36,7 @@ from transformers.modeling_utils import (
     prune_linear_layer,
 )
 from transformers.utils import logging
-from transformers.models.roberta.configuration_roberta.configuration_roberta import RobertaConfig
+from transformers.models.roberta.configuration_roberta import RobertaConfig
 
 
 logger = logging.get_logger(__name__)
