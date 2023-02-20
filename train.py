@@ -1,7 +1,12 @@
 import argparse
 import numpy as np
 import torch
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, AdamW, get_linear_schedule_with_warmup
+from transformers import (
+    AutoConfig,
+    AutoTokenizer, 
+    AdamW, 
+    get_linear_schedule_with_warmup
+    )
 from sklearn.metrics import accuracy_score, classification_report
 from torch import nn
 from collections import defaultdict
@@ -14,13 +19,16 @@ import logging
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from data import split_data, EndoDataset
 
+from models.model_bert import EndoCls
+from models.model_roberta import EndoCls
+
 
 #Training function
 def train(model, data_loader, optimizer, device, scheduler, n_examples, args):
     model = model.train()
     losses = []
     correct_predictions = 0
-    for data in tqdm(data_loader, desc="train"):
+    for data in tqdm(data_loader, desc="Training"):
         input_ids = data["input_ids"].to(device)
         attention_mask = data["attention_mask"].to(device)
         targets = data["target"].to(device)
@@ -30,21 +38,13 @@ def train(model, data_loader, optimizer, device, scheduler, n_examples, args):
             attention_mask=attention_mask,
             labels = targets
         )
-        """
-        return SequenceClassifierOutput(
-            loss=loss,
-            logits=logits,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
-        )
-        """
-        _, preds = torch.max(outputs[1], dim=1)    # the second return value is logits
-        loss = outputs[0] #the first return value is loss
+
+        loss, preds = outputs[0], torch.max(outputs[1], dim=1)[1]
 
         if args.n_gpu > 1:
             loss = loss.mean()
         
-        correct_predictions += torch.sum(preds == targets)
+        correct_predictions += torch.sum(preds == targets).item()
         losses.append(loss.item())
         loss.backward()
         nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -52,7 +52,7 @@ def train(model, data_loader, optimizer, device, scheduler, n_examples, args):
         scheduler.step()
         optimizer.zero_grad()
 
-    return correct_predictions.double() / n_examples, np.mean(losses)
+    return correct_predictions / n_examples, np.mean(losses)
 
 
 #Evaluation function 
@@ -61,7 +61,7 @@ def eval(model, data_loader, device, n_examples, args):
     losses = []
     correct_predictions = 0
     with torch.no_grad():
-        for data in tqdm(data_loader, desc="validation"):
+        for data in tqdm(data_loader, desc="Evaluating"):
             input_ids = data["input_ids"].to(device)
             attention_mask = data["attention_mask"].to(device)
             targets = data["target"].to(device)
@@ -72,16 +72,15 @@ def eval(model, data_loader, device, n_examples, args):
                 labels = targets
             )
 
-            _, preds = torch.max(outputs[1], dim=1)
-            loss = outputs[0]
-            
+            loss, preds = outputs[0], torch.max(outputs[1], dim=1)[1]
+
             if args.n_gpu > 1:
                 loss = loss.mean()
-            
-            correct_predictions += torch.sum(preds == targets)
+
+            correct_predictions += torch.sum(preds == targets).item()
             losses.append(loss.item())
 
-    return correct_predictions.double() / n_examples, np.mean(losses)
+    return correct_predictions / n_examples, np.mean(losses)
 
 
 #Prediction function
@@ -107,7 +106,7 @@ def get_predictions(model, data_loader, args):
                 labels = targets
             )
 
-            _, preds = torch.max(outputs[1], dim=1)
+            _, preds = outputs[0], torch.max(outputs[1], dim=1)[1]
             sequences.extend(texts)
             predictions.extend(preds)
             prediction_probs.extend(outputs[1])
@@ -153,7 +152,7 @@ def main():
 
 
     # make output directories
-    os.makedirs(os.path.join(args.log, args.model+"_"+args.type), exist_ok=True)
+    os.makedirs(args.log, exist_ok=True)
     os.makedirs(os.path.join(args.res, args.model+"_"+args.type), exist_ok=True)
     os.makedirs(os.path.join(args.checkpoint, args.model+"_"+args.type), exist_ok=True)
 
@@ -162,7 +161,7 @@ def main():
     logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s - %(message)s', 
                         datefmt = '%m/%d/%Y %H:%M:%S',
                         level = logging.INFO,
-                        filename=os.path.join(args.log, args.model+"_"+args.type, "log.txt"),
+                        filename=os.path.join(args.log, args.model+"_"+args.type+".log"),
                         filemode="w") # 로그파일 작성 https://jh-bk.tistory.com/40    \
     logger = logging.getLogger(__name__)
     logger.info("Model: " + args.model)
@@ -194,7 +193,11 @@ def main():
 
 
     # model
-    model = AutoModelForSequenceClassification.from_pretrained(args.model, num_labels=args.num_labels) 
+    config = AutoConfig.from_pretrained(args.model)
+    if "bert" in args.model.lower():
+        model = EndoCls.from_pretrained(args.model, config=config, num_labels=args.num_labels) 
+    else: #TODO roberta
+        model = EndoCls.from_pretrained(args.model, config=config, num_labels=args.num_labels) 
     if args.local_rank == -1:
         args.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     args.n_gpu = torch.cuda.device_count()
@@ -237,9 +240,9 @@ def main():
     # store best score
     history = defaultdict(list)
     history = {'train_acc': [],
-            'train_loss': [],
-            'val_acc': [],
-            'val_loss': []
+               'train_loss': [],
+               'val_acc': [],
+               'val_loss': []
             }
     best_accuracy = best_epoch = 0
 
@@ -248,7 +251,7 @@ def main():
     print("Training the Model")
     t0 = time.time()
     for epoch in range(args.epoch):
-        logger.info(f'Epoch {epoch + 1}/{args.epoch}')
+        logger.info(f'[Epoch {epoch + 1}/{args.epoch}]')
         print(f'\nEpoch {epoch + 1}/{args.epoch}')
 
         train_acc, train_loss = train(
@@ -272,9 +275,9 @@ def main():
         logger.info('****** Validation result ******   loss : {:.3f}, accuracy : {:.3f}'.format(val_loss, val_acc))
         logger.info('=' * 70)
 
-        history['train_acc'].append(train_acc.item())
+        history['train_acc'].append(train_acc)
         history['train_loss'].append(train_loss)
-        history['val_acc'].append(val_acc.item())
+        history['val_acc'].append(val_acc)
         history['val_loss'].append(val_loss)
 
         if val_acc > best_accuracy:
@@ -332,7 +335,7 @@ def main():
     logger.info("Classification Report")
     logger.info("\n{}\n".format(classification_report(y_test, y_pred, target_names = class_values)))
     logger.info('=' * 70)
-    logger.info("Accuracy on the Validation set: {}".format(accuracy))
+    logger.info("Accuracy on the Validation set: {:.3f}".format(accuracy))
     logger.info('=' * 70)
 
 

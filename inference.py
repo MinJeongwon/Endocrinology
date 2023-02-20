@@ -1,6 +1,6 @@
 import argparse
 import torch
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
+from transformers import AutoTokenizer, AutoConfig
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -12,6 +12,8 @@ from tqdm import tqdm
 from torch import cuda
 from torch.utils.data import DataLoader, SequentialSampler
 from data import EndoDataset
+from models.model_bert import EndoCls
+from models.model_roberta import EndoCls
 
 
 # predictions
@@ -19,10 +21,12 @@ def get_predictions(model, data_loader, args, test_len):
     model = model.eval()
     losses = []
     correct_predictions = 0
+
     sequences = []
     predictions = []
     prediction_probs = []
     real_values = []
+
     with torch.no_grad():
         for data in tqdm(data_loader):
             title = data["title"]
@@ -34,26 +38,26 @@ def get_predictions(model, data_loader, args, test_len):
 
             outputs = model(
                 input_ids=input_ids,
-                attention_mask=attention_mask
+                attention_mask=attention_mask,
+                labels=targets
             )
 
-            _, preds = torch.max(outputs[0], dim=1) #TODO the first return value is loss, the second return value is logits
+            loss, preds = outputs[0], torch.max(outputs[1], dim=1)[1]
             sequences.extend(texts)
             predictions.extend(preds)
-            prediction_probs.extend(outputs[0])
+            prediction_probs.extend(outputs[1])
             real_values.extend(targets)
 
-            loss = outputs[0]
             if args.n_gpu > 1:
                 loss = loss.mean()
-            correct_predictions += torch.sum(preds == targets)
+            correct_predictions += torch.sum(preds == targets).item()
             losses.append(loss.item())
 
     predictions = torch.stack(predictions).cpu()
     prediction_probs = torch.stack(prediction_probs).cpu()
     real_values = torch.stack(real_values).cpu()
 
-    return sequences, predictions, prediction_probs, correct_predictions.double() / test_len, np.mean(losses), real_values
+    return sequences, predictions, prediction_probs, correct_predictions / test_len, np.mean(losses), real_values
 
 
 def main():
@@ -75,7 +79,7 @@ def main():
     logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s - %(message)s', 
                         datefmt = '%m/%d/%Y %H:%M:%S',
                         level = logging.INFO,
-                        filename=os.path.join(args.log, args.model+"_"+args.type, "log.txt"),
+                        filename=os.path.join(args.log, args.model+"_"+args.type+".log"),
                         filemode="a"
                         ) # 로그파일 작성 https://www.delftstack.com/ko/howto/python/python-log-to-file/
     logger = logging.getLogger(__name__)
@@ -104,7 +108,8 @@ def main():
 
     # model
     print("Loading the Model ...")
-    model = AutoModelForSequenceClassification.from_pretrained(args.model, num_labels = args.num_labels) 
+    config = AutoConfig.from_pretrained(args.model)
+    model = EndoCls.from_pretrained(args.model, config=config, num_labels=args.num_labels) 
     if args.local_rank == -1:
         args.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     args.n_gpu = torch.cuda.device_count()
