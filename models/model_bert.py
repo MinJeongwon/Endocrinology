@@ -45,7 +45,6 @@ from transformers.modeling_utils import (
 from transformers.utils import logging
 from transformers.models.bert.configuration_bert import BertConfig
 
-
 logger = logging.get_logger(__name__)
 
 BERT_PRETRAINED_MODEL_ARCHIVE_LIST = [
@@ -904,8 +903,9 @@ class BertModel(BertPreTrainedModel):
 
 
 class EndoCls(BertPreTrainedModel):
-    def __init__(self, config, num_labels):
-        super().__init__(config, num_labels)
+    def __init__(self, config, args, num_labels):
+        super().__init__(config, args, num_labels)
+        self.args = args
         self.num_labels = num_labels
         self.config = config
 
@@ -926,7 +926,7 @@ class EndoCls(BertPreTrainedModel):
         inputs_embeds=None,
         labels=None,
         output_attentions=None,
-        output_hidden_states=None,
+        output_hidden_states=True,
         return_dict=None,
     ):
         r"""
@@ -949,7 +949,7 @@ class EndoCls(BertPreTrainedModel):
             return_dict=return_dict,
         )
 
-        pooled_output = outputs[1]
+        pooled_output = outputs[1] #TODO outputs[2] when output_hidden_states=True :  (13, number_of_data_points, max_sequence_length, embeddings_dimension)
 
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)

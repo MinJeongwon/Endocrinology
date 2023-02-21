@@ -20,15 +20,23 @@ from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from data import split_data, EndoDataset
 
 from models.model_bert import EndoCls
-from models.model_roberta import EndoCls
+from models.model_roberta import EndoClsRoberta
+
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('TkAgg',force=True)
+from sklearn.manifold import TSNE
+import seaborn as sns
+import pandas as pd
 
 
 #Training function
-def train(model, data_loader, optimizer, device, scheduler, n_examples, args):
+def train(model, data_loader, optimizer, device, scheduler, n_examples, epoch, args):
     model = model.train()
     losses = []
     correct_predictions = 0
-    for data in tqdm(data_loader, desc="Training"):
+    layerwise_hidden_states, layerwise_attn_mask, layerwise_label = None, None, None
+    for batch_idx, data in enumerate(tqdm(data_loader, desc="Training")):
         input_ids = data["input_ids"].to(device)
         attention_mask = data["attention_mask"].to(device)
         targets = data["target"].to(device)
@@ -51,6 +59,20 @@ def train(model, data_loader, optimizer, device, scheduler, n_examples, args):
         optimizer.step()
         scheduler.step()
         optimizer.zero_grad()
+
+        if (epoch%10==0) and (batch_idx<30):
+            if type(layerwise_hidden_states) == type(None):
+                    layerwise_hidden_states = tuple(layer_hidden_states.cpu() for layer_hidden_states in outputs[2])
+                    layerwise_attn_mask = attention_mask.cpu()
+                    layerwise_label = targets.cpu()
+            else:
+                layerwise_hidden = outputs[2]
+                layerwise_hidden_states = tuple(torch.cat([ex,layer_hidden_state_batch.cpu()]) for ex,layer_hidden_state_batch in zip(layerwise_hidden_states, layerwise_hidden))
+                layerwise_attn_mask = torch.cat([layerwise_attn_mask, attention_mask.cpu()])
+                layerwise_label = torch.cat([layerwise_label, targets.cpu()])
+
+    if epoch%10==0:
+        visualize_layerwise_embeddings(layerwise_hidden_states, layerwise_attn_mask, layerwise_label, epoch, args)
 
     return correct_predictions / n_examples, np.mean(losses)
 
@@ -132,6 +154,27 @@ def visualization(train_score, dev_score, path, scorename, ct):
     print(scorename +" graph saved!")
 
 
+def visualize_layerwise_embeddings(layerwise_hidden_states, masks, labels, epoch, args, layers_to_visualize=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]):
+    dim_reducer = TSNE(n_components=2)
+    num_layers = len(layers_to_visualize)
+
+    fig = plt.figure(figsize=(24,(num_layers/4)*6)) #each subplot of size 6x6, each row will hold 4 plots
+    ax = [fig.add_subplot(int(num_layers/4),4,i+1) for i in range(num_layers)]
+
+    labels = labels.cpu().numpy().reshape(-1)
+    for i, layer_i in enumerate(layers_to_visualize):
+        layer_embeds = layerwise_hidden_states[layer_i]
+
+        layer_averaged_hidden_states = torch.div(layer_embeds.sum(dim=1), masks.cpu().sum(dim=1, keepdim=True))
+        layer_dim_reduced_embeds = dim_reducer.fit_transform(layer_averaged_hidden_states.detach().numpy())
+
+        df = pd.DataFrame.from_dict({'x':layer_dim_reduced_embeds[:,0],'y':layer_dim_reduced_embeds[:,1],'label':labels})
+
+        sns.scatterplot(data=df, x='x', y='y', hue='label', ax=ax[i], palette="pastel")
+
+    plt.savefig(os.path.join(args.res, args.model+"_"+args.type)+'/layerwise_embeddings_epoch_{}.png'.format(epoch), pad_inches=0)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', type=str, default='bert-base-uncased')
@@ -194,10 +237,10 @@ def main():
 
     # model
     config = AutoConfig.from_pretrained(args.model)
-    if "bert" in args.model.lower():
-        model = EndoCls.from_pretrained(args.model, config=config, num_labels=args.num_labels) 
-    else: #TODO roberta
-        model = EndoCls.from_pretrained(args.model, config=config, num_labels=args.num_labels) 
+    if "roberta" in args.model.lower(): #TODO roberta
+        model = EndoClsRoberta.from_pretrained(args.model, config=config, num_labels=args.num_labels) 
+    else:
+        model = EndoCls.from_pretrained(args.model, config=config, args=args, num_labels=args.num_labels) 
     if args.local_rank == -1:
         args.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     args.n_gpu = torch.cuda.device_count()
@@ -261,6 +304,7 @@ def main():
                                 args.device,
                                 scheduler,
                                 train_dataset.__len__(),
+                                epoch,
                                 args
                                 )
         logger.info('****** Train result ******   loss : {:.3f}, accuracy : {:.3f}'.format(train_loss, train_acc))
