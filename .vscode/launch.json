@@ -17,7 +17,7 @@
                 "--max_sequence_len", "512",
                 "--type", "title_abst", 
                 "--num_labels", "6",
-                "--epoch", "50", 
+                "--epoch", "3", 
                 "--train_batch_size", "16",
                 "--valid_batch_size", "16", 
                 "--res", "outputs", 

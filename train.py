@@ -60,7 +60,7 @@ def train(model, data_loader, optimizer, device, scheduler, n_examples, epoch, a
         scheduler.step()
         optimizer.zero_grad()
 
-        if (epoch%10==0) and (batch_idx<30):
+        if ((epoch+1)==1 or (epoch+1)%10==0) and (30<batch_idx<61):
             if type(layerwise_hidden_states) == type(None):
                     layerwise_hidden_states = tuple(layer_hidden_states.cpu() for layer_hidden_states in outputs[2])
                     layerwise_attn_mask = attention_mask.cpu()
@@ -71,7 +71,7 @@ def train(model, data_loader, optimizer, device, scheduler, n_examples, epoch, a
                 layerwise_attn_mask = torch.cat([layerwise_attn_mask, attention_mask.cpu()])
                 layerwise_label = torch.cat([layerwise_label, targets.cpu()])
 
-    if epoch%10==0:
+    if ((epoch+1)==1) or ((epoch+1)%10==0):
         visualize_layerwise_embeddings(layerwise_hidden_states, layerwise_attn_mask, layerwise_label, epoch, args)
 
     return correct_predictions / n_examples, np.mean(losses)
@@ -152,6 +152,7 @@ def visualization(train_score, dev_score, path, scorename, ct):
     plt.legend(['Train', 'Validation'], loc='upper left')
     plt.savefig(path+"/"+scorename+".png")
     print(scorename +" graph saved!")
+    plt.close()
 
 
 def visualize_layerwise_embeddings(layerwise_hidden_states, masks, labels, epoch, args, layers_to_visualize=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]):
@@ -159,20 +160,29 @@ def visualize_layerwise_embeddings(layerwise_hidden_states, masks, labels, epoch
     num_layers = len(layers_to_visualize)
 
     fig = plt.figure(figsize=(24,(num_layers/4)*6)) #each subplot of size 6x6, each row will hold 4 plots
+    fig.suptitle('Embeddings in vector space at layer {}'.format(epoch+1), fontsize=16)
+
     ax = [fig.add_subplot(int(num_layers/4),4,i+1) for i in range(num_layers)]
 
     labels = labels.cpu().numpy().reshape(-1)
+    label_to_class = {0:'Bone', 1:'Diabetes', 2:'Others', 3:'Pitu/Adrenal', 4:'Thyroid', 5:'X'}
+    new_labels = np.array([label_to_class[label] for label in labels])
     for i, layer_i in enumerate(layers_to_visualize):
         layer_embeds = layerwise_hidden_states[layer_i]
-
         layer_averaged_hidden_states = torch.div(layer_embeds.sum(dim=1), masks.cpu().sum(dim=1, keepdim=True))
         layer_dim_reduced_embeds = dim_reducer.fit_transform(layer_averaged_hidden_states.detach().numpy())
+        df = pd.DataFrame.from_dict({'x':layer_dim_reduced_embeds[:,0],'y':layer_dim_reduced_embeds[:,1],'classes':new_labels})
 
-        df = pd.DataFrame.from_dict({'x':layer_dim_reduced_embeds[:,0],'y':layer_dim_reduced_embeds[:,1],'label':labels})
+        color_dict = dict({'Bone':'#d65f5f',
+                            'Diabetes':'#4878cf',
+                            'Others': '#ab6aca',
+                            'Pitu/Adrenal': '#ffffff',
+                            'Thyroid': '#6acc65',
+                            'X': '#c4ad66'})
+        sns.scatterplot(data=df, x='x', y='y', hue='classes', ax=ax[i], palette=color_dict).set_title("Layer {}".format(layer_i)) #palette : Paired muted pastel  
 
-        sns.scatterplot(data=df, x='x', y='y', hue='label', ax=ax[i], palette="pastel")
-
-    plt.savefig(os.path.join(args.res, args.model+"_"+args.type)+'/layerwise_embeddings_epoch_{}.png'.format(epoch), pad_inches=0)
+    plt.savefig(os.path.join(args.res, args.model+"_"+args.type)+'/layerwise_embeddings_epoch_{}.png'.format(epoch+1), pad_inches=0)
+    plt.close()
 
 
 def main():

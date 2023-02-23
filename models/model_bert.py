@@ -911,7 +911,9 @@ class EndoCls(BertPreTrainedModel):
 
         self.bert = BertModel(config)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        self.classifier = nn.Linear(config.hidden_size, self.num_labels)
+        self.classifier1 = nn.Linear(config.hidden_size, config.hidden_size*2)
+        self.classifier2 = nn.Linear(config.hidden_size*2, self.num_labels)
+        self.dropout2 = nn.Dropout(0.1)
 
         self.init_weights()
 
@@ -952,7 +954,7 @@ class EndoCls(BertPreTrainedModel):
         pooled_output = outputs[1] #TODO outputs[2] when output_hidden_states=True :  (13, number_of_data_points, max_sequence_length, embeddings_dimension)
 
         pooled_output = self.dropout(pooled_output)
-        logits = self.classifier(pooled_output)
+        logits = self.dropout2(self.classifier2(self.classifier1(pooled_output)))
 
         if (self.num_labels>1) and (labels is not None):
             loss_fct = CrossEntropyLoss()
