@@ -3,6 +3,5 @@ outputs
 source
 data_loader
 originals
-log
 models
-utils
+utils.py
