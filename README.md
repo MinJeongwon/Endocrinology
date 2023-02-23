@@ -1,9 +1,9 @@
 # Medical paper classification using transformer-based Pretrained Language Models
-This repository contains the code and resources for text classification task using state-of-the-art Transformer models. This work aims to classifying medical paper into 6 categories [bone, pitu/adrenal, diabetes, thyroid, others, x].     
-The major purpose is to firstly predict endocrinology paper and the one in other departments, and to secondly classify it into subgroups of endocrinological topics if the paper is  classified under endocrinology department. When given title and abstract of the paper, our model decides the specific category this paperbased on the information from the title and abstract. We explore how the performance of model prediction improves when given the abstracts as well as titles compared to when given only titles. 
+This repository contains the code and resources for text classification using the Transformer-based large language models. The work aims to classifying medical papers into 6 categories: bone, pitu/adrenal, diabetes, thyroid, others, x.     
+The major purpose is to firstly classify endocrinology papers and the ones in other medical departments, and to secondly classify them into subgroups of endocrinological topics if the paper was classified under endocrinology department. The model decides the category of the papers based on the information from the title and abstract. We explore how the performance of the models changes when given the abstracts as well as titles compared to case when given the titles only. 
 
 ## Data Format
-Both train.py and inference.py scripts receive the datasets in .csv format with the following format:
+Both train.py and inference.py takes the datasets in .csv format with the following format:
 |ID|category|TI|abst|
 |:---:|:---:|:-----:|:-----:|
 |25,729,272|bone|Long Term Effect of High Glucose and Phosphate Levels on the OPG/RANK/RANKL/TRAIL System in the Progression of Vascular Calcification in rat Aortic Smooth Muscle Cells.|...|
@@ -41,7 +41,7 @@ Please note that before executing the bash file, you need to define a set of fil
 --local_rank                local rank.
 ```
 ## Inference
-In order to inference the fine-tuned models, you can execute the following bash file:
+In order to perform inference with the fine-tuned models, you can execute the following bash file:
 ```shell
 bash inference.sh
 ```
@@ -60,7 +60,7 @@ bash inference.sh
 ```
 
 ## Models
-All of the models on the [Huggingface](https://huggingface.co/transformers) that support `AutoModelForSequenceClassification` are supported by this repository and can be used by setting the model parameter of the train.py with the appropriate name of the model. Some of them are listed below and the others can be found on Huggingface website.
+All of the models on the [Huggingface](https://huggingface.co/transformers) are supported by this repository and can be used by setting the `model` parameter of train.py with the corresponding model's name. Below are some of the models used in the experiments.
 ```
 Models = {
     "BERT base uncased": "bert-base-uncased",
