@@ -23,7 +23,7 @@ bash train.sh
 ```
 Please note that before executing the bash file, you need to define a set of files path in it.
 
-### Option
+### Options
 ```
 --model                     bert-base-uncased, roberta-base, etc.
 --type                      whether to use both `title` and `abstract`(title_abst) for classification or just use `title`(title).
@@ -74,16 +74,16 @@ Models = {
     "RoBERTa": "roberta-base",
     "Biomed RoBERTa": "allenai/biomed_roberta_base",
 ```
-
 ## Results
+### Classification performance
 <table class="tg">
   <tr>
-    <td class="tg-fymr" rowspan="2">Classifier</th>
-    <td class="tg-fymr" rowspan="2">Type</th>
-    <td class="tg-fymr" rowspan="2">Accuracy</th>
-    <td class="tg-fymr" rowspan="2">Precision</th>
-    <td class="tg-fymr" rowspan="2">Recall</th>
-    <td class="tg-fymr" rowspan="2">F1</th>
+    <td class="tg-fymr" rowspan="2"><b>Classifier</th>
+    <td class="tg-fymr" rowspan="2"><b>Type</th>
+    <td class="tg-fymr" rowspan="2"><b>Accuracy</th>
+    <td class="tg-fymr" rowspan="2"><b>Precision</th>
+    <td class="tg-fymr" rowspan="2"><b>Recall</th>
+    <td class="tg-fymr" rowspan="2"><b>F1</th>
   </tr>
 <tbody>
   <tr>
@@ -178,3 +178,5 @@ Models = {
 </tbody>
 </table>
 
+### Visualization of embedding space at epoch 50
+<img src="./imgs/layerwise_embeddings_epoch_50.png">
