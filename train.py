@@ -9,6 +9,7 @@ from transformers import (
     logging
     )
 logging.set_verbosity_error()
+
 from sklearn.metrics import accuracy_score, classification_report
 from torch import nn
 from collections import defaultdict
@@ -19,6 +20,8 @@ import matplotlib
 matplotlib.use('TkAgg',force=True)
 import matplotlib.pyplot as plt
 import os 
+import random
+
 import logging
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from data import split_data, EndoDataset
@@ -27,6 +30,17 @@ from models.model_bert import EndoCls
 from models.model_roberta import EndoClsRoberta
 
 from utils import get_predictions, visualization, visualize_layerwise_embeddings
+
+# seed
+def seed_everything(seed: int = 42):
+    random.seed(seed)
+    np.random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)  # type: ignore
+    torch.backends.cudnn.deterministic = True  # type: ignore
+    torch.backends.cudnn.benchmark = True  # type: ignore
+
 
 #Training function
 def train(model, data_loader, optimizer, device, scheduler, n_examples, epoch, args):
@@ -123,17 +137,26 @@ def main():
     args = parser.parse_args()
 
 
+    # seed
+    seed_everything(42)
+
     # make output directories
+    model_name = args.model.replace("/", "_") if "/" in args.model else args.model
     os.makedirs(args.log, exist_ok=True)
-    os.makedirs(os.path.join(args.res, args.model+"_"+args.type), exist_ok=True)
-    os.makedirs(os.path.join(args.checkpoint, args.model+"_"+args.type), exist_ok=True)
+    os.makedirs(os.path.join(args.res, model_name+"_"+args.type), exist_ok=True)
+    os.makedirs(os.path.join(args.checkpoint, model_name+"_"+args.type), exist_ok=True)
 
 
     # log settings
+    if "/" in args.model:
+        model_name = args.model.replace("/", "_")
+        log_path = os.path.join(args.log, str(datetime.date.today()) + "_" + model_name)+"_"+args.type+".log"
+    else:
+        log_path = os.path.join(args.log, str(datetime.date.today()) + "_" + args.model+"_"+args.type+".log")
     logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s - %(message)s', 
                         datefmt = '%m/%d/%Y %H:%M:%S',
                         level = logging.INFO,
-                        filename=os.path.join(args.log, args.model+"_"+args.type+".log"),
+                        filename=log_path,
                         filemode="w") # 로그파일 작성 https://jh-bk.tistory.com/40    \
     logger = logging.getLogger(__name__)
     logger.info("Model: " + args.model)
@@ -254,7 +277,7 @@ def main():
         history['val_loss'].append(val_loss)
 
         if val_acc > best_accuracy:
-            torch.save(model.state_dict(), os.path.join(args.checkpoint, args.model+"_"+args.type) + "/best_performed.bin")
+            torch.save(model.state_dict(), os.path.join(args.checkpoint, model_name+"_"+args.type) + "/best_performed.bin")
             best_accuracy = val_acc
             best_epoch = epoch + 1
 
@@ -266,8 +289,8 @@ def main():
     # result visualization
     assert len(history['train_acc'])==len(history['val_acc'])
     assert len(history['train_loss'])==len(history['val_loss'])
-    visualization(history['train_acc'], history['val_acc'], os.path.join(args.res, args.model+"_"+args.type), "accuracy", ct=1)
-    visualization(history['train_loss'], history['val_loss'], os.path.join(args.res, args.model+"_"+args.type), "loss", ct=2)
+    visualization(history['train_acc'], history['val_acc'], os.path.join(args.res, model_name+"_"+args.type), "accuracy", ct=1)
+    visualization(history['train_loss'], history['val_loss'], os.path.join(args.res, model_name+"_"+args.type), "loss", ct=2)
 
 
     # best score
@@ -276,7 +299,7 @@ def main():
 
 
     # load best model
-    model.load_state_dict(torch.load(os.path.join(args.checkpoint, args.model+"_"+args.type) + "/best_performed.bin"))
+    model.load_state_dict(torch.load(os.path.join(args.checkpoint, model_name+"_"+args.type) + "/best_performed.bin"))
     model = model.to(args.device)
 
 
@@ -298,7 +321,7 @@ def main():
     # append prediction probability for each class
     for i in range(len(encoded_classes)):
         df_dev["weight_class_"+str(i)] = y_pred_probs[:, i]
-    df_dev.to_excel(os.path.join(args.res, args.model+"_"+args.type) + "/classification_result_dev.xlsx")
+    df_dev.to_excel(os.path.join(args.res, model_name+"_"+args.type) + "/classification_result_dev.xlsx")
 
 
     # accuracy and classification report

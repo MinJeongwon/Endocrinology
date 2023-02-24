@@ -12,7 +12,7 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
-                "--model", "bert-base-uncased", 
+                "--model", "dmis-lab/biobert-v1.1", 
                 "--source_data_dir", "./source/", 
                 "--max_sequence_len", "512",
                 "--type", "title_abst", 

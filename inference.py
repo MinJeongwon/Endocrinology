@@ -1,19 +1,22 @@
 import argparse
-import torch
-from transformers import AutoTokenizer, AutoConfig
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
-import torch
+import datetime
 import logging
 import os
 from tqdm import tqdm
+
+import torch
 from torch import cuda
 from torch.utils.data import DataLoader, SequentialSampler
+
+from transformers import AutoTokenizer, AutoConfig
+
 from data import EndoDataset
 from models.model_bert import EndoCls
-from models.model_roberta import EndoCls
+from models.model_roberta import EndoClsRoberta
 
 
 # predictions
@@ -74,12 +77,23 @@ def main():
     parser.add_argument("--local_rank", type=int, default=-1, help="local_rank for distributed training on gpus")
     args = parser.parse_args()
 
+    model_name = args.model.replace("/", "_") if "/" in args.model else args.model
+    os.makedirs(args.log, exist_ok=True)
+    os.makedirs(os.path.join(args.res, model_name+"_"+args.type), exist_ok=True)
+    os.makedirs(os.path.join(args.checkpoint, model_name+"_"+args.type), exist_ok=True)
+
+    # log settings
+    if "/" in args.model:
+        model_name = args.model.replace("/", "_")
+        log_path = os.path.join(args.log, str(datetime.date.today()) + "_" + model_name)+"_"+args.type+".log"
+    else:
+        log_path = os.path.join(args.log, str(datetime.date.today()) + "_" + args.model+"_"+args.type+".log")
 
     # log settings
     logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s - %(message)s', 
                         datefmt = '%m/%d/%Y %H:%M:%S',
                         level = logging.INFO,
-                        filename=os.path.join(args.log, args.model+"_"+args.type+".log"),
+                        filename=log_path,
                         filemode="a"
                         ) # 로그파일 작성 https://www.delftstack.com/ko/howto/python/python-log-to-file/
     logger = logging.getLogger(__name__)
@@ -109,7 +123,7 @@ def main():
     # model
     print("Loading the Model ...")
     config = AutoConfig.from_pretrained(args.model)
-    model = EndoCls.from_pretrained(args.model, config=config, num_labels=args.num_labels) 
+    model = EndoCls.from_pretrained(args.model, config=config, args=args, num_labels=args.num_labels) 
     if args.local_rank == -1:
         args.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     args.n_gpu = torch.cuda.device_count()
@@ -121,7 +135,7 @@ def main():
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank], output_device=args.local_rank)
     elif args.n_gpu > 1:
         model = torch.nn.DataParallel(model)   
-    model.load_state_dict(torch.load(os.path.join(args.checkpoint, args.model+"_"+args.type) + "/best_performed.bin", map_location = args.device))
+    model.load_state_dict(torch.load(os.path.join(args.checkpoint, model_name+"_"+args.type) + "/best_performed.bin", map_location = args.device))
     print("Model Loaded Successfully!")
 
 
@@ -141,7 +155,7 @@ def main():
 
     for i in range(args.num_labels):
         pred_df["weight_class_"+str(i)] = y_pred_probs[:, i]
-    pred_df.to_excel(os.path.join(args.res, args.model+"_"+args.type) + "/classification_result_test.xlsx") 
+    pred_df.to_excel(os.path.join(args.res, model_name+"_"+args.type) + "/classification_result_test.xlsx") 
     accuracy = accuracy_score(y_test, y_pred)
     print("Accuracy on the Test set: {:.3f}".format(accuracy))
 
@@ -164,7 +178,7 @@ def main():
     plt.title('Confusion Matrix')
     plt.xlabel('Predicted')
     plt.ylabel('Truth')
-    plt.savefig(os.path.join(args.res, args.model+"_"+args.type, "confusion_matrix.png"))
+    plt.savefig(os.path.join(args.res, model_name+"_"+args.type, "confusion_matrix.png"))
 
     print("Classification Finished!")
 
