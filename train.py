@@ -5,14 +5,18 @@ from transformers import (
     AutoConfig,
     AutoTokenizer, 
     AdamW, 
-    get_linear_schedule_with_warmup
+    get_linear_schedule_with_warmup,
+    logging
     )
+logging.set_verbosity_error()
 from sklearn.metrics import accuracy_score, classification_report
 from torch import nn
 from collections import defaultdict
 from tqdm import tqdm
 import time
 import datetime
+import matplotlib
+matplotlib.use('TkAgg',force=True)
 import matplotlib.pyplot as plt
 import os 
 import logging
@@ -22,8 +26,7 @@ from data import split_data, EndoDataset
 from models.model_bert import EndoCls
 from models.model_roberta import EndoClsRoberta
 
-from utils import *
-
+from utils import get_predictions, visualization, visualize_layerwise_embeddings
 
 #Training function
 def train(model, data_loader, optimizer, device, scheduler, n_examples, epoch, args):
