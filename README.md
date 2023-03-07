@@ -112,7 +112,7 @@ Models = {
     <td class="tg-xnov"><b> 0.88 </td>
   </tr>
   <tr>
-    <td class="tg-xnov">SciBERT (allenai/scibert_scivocab_uncased_title_abst)</td>
+    <td class="tg-xnov">SciBERT (allenai/scibert_scivocab_uncased)</td>
     <td class="tg-xnov"> title + abstract </td>
     <td class="tg-xnov"> 0.87 </td>
     <td class="tg-xnov"> 0.87 </td>

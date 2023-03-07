@@ -25,7 +25,9 @@
                 "--checkpoint", "checkpoint", 
                 "--lr", "2e-5", 
                 "--n_warmup_steps", "0", 
-                "--local_rank", "-1" 
+                "--local_rank", "-1",
+                "--contrast_loss", "1",
+                "--save_when", "f1"
             ]
         }
     ]

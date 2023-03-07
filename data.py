@@ -41,6 +41,8 @@ class EndoDataset(Dataset):
             data_file = self.file_path
 
         data = pd.read_csv(data_file, index_col=0)
+        data['category'] = data['category'].str.replace('x', 'not endocrinology-related')
+        data['category'] = data['category'].str.replace('pitu/adrenal', 'pituitary adrenal')
         labelEncoder = LabelEncoder()
         data['label'] = labelEncoder.fit_transform(data['category'])
         self.classes = labelEncoder.classes_
@@ -85,7 +87,7 @@ class EndoDataset(Dataset):
             input_mask = [1] * len(input_ids)
 
             # label
-            label_dict = {'bone':0, 'diabetes':1, 'others':2, 'pitu/adrenal':3, 'thyroid':4, 'x':5}
+            label_dict = {'bone':0, 'diabetes':1, 'others':2, 'pituitary adrenal':3, 'thyroid':4, 'not endocrinology-related':5}
             labels = label_dict[category]
 
             while len(input_ids) < self.args.max_sequence_len:

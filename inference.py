@@ -1,5 +1,5 @@
 import argparse
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader, SequentialSampler
 from transformers import AutoTokenizer, AutoConfig
 
 from data import EndoDataset
-from models.model_bert import EndoCls
+from models.model_bert import EndoClsBert
 from models.model_roberta import EndoClsRoberta
 
 
@@ -75,7 +75,13 @@ def main():
     parser.add_argument('--log', type=str, default='log')
     parser.add_argument('--res', type=str, default='outputs')
     parser.add_argument("--local_rank", type=int, default=-1, help="local_rank for distributed training on gpus")
+    parser.add_argument('--contrast_loss', default=0, type=int, help='Whether use contrastive model.')
+    parser.add_argument('--lamb', default=0.3, type=float, help='lambda')
+    parser.add_argument('--threshold', default=0.02, type=float, help='Threshold for keeping tokens. Denote as gamma in the paper.')
+    parser.add_argument('--tau', default=1, type=float, help='Temperature for contrastive model.')
+    parser.add_argument('--save_when', default="accuracy", type=str, help='')
     args = parser.parse_args()
+    print(args)
 
     model_name = args.model.replace("/", "_") if "/" in args.model else args.model
     os.makedirs(args.log, exist_ok=True)
@@ -123,7 +129,8 @@ def main():
     # model
     print("Loading the Model ...")
     config = AutoConfig.from_pretrained(args.model)
-    model = EndoCls.from_pretrained(args.model, config=config, args=args, num_labels=args.num_labels) 
+    model = EndoClsBert.from_pretrained(args.model, config=config, args=args, tokenizer=tokenizer, num_labels=args.num_labels, \
+                                            label_dict=class_dict, contrast_loss=args.contrast_loss, lamb=args.lamb, tau=args.tau, threshold=args.threshold)
     if args.local_rank == -1:
         args.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     args.n_gpu = torch.cuda.device_count()
@@ -135,7 +142,7 @@ def main():
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank], output_device=args.local_rank)
     elif args.n_gpu > 1:
         model = torch.nn.DataParallel(model)   
-    model.load_state_dict(torch.load(os.path.join(args.checkpoint, model_name+"_"+args.type) + "/best_performed.bin", map_location = args.device))
+    model.load_state_dict(torch.load(os.path.join(args.checkpoint, model_name+"_"+args.type, str(datetime.date.today())) + "_best_performed.bin", map_location = args.device))
     print("Model Loaded Successfully!")
 
 
@@ -143,7 +150,12 @@ def main():
     print("Classifying ...")
     _, y_pred, y_pred_probs, test_acc, test_loss, y_test = get_predictions(model, test_data_loader, args, test_dataset.__len__())
     logger.info('=' * 70)
-    logger.info('****** Test result ******   loss : {:.3f}, accuracy : {:.3f}'.format(test_loss, test_acc))
+    accuracy = accuracy_score(y_test, y_pred)
+    f1 = f1_score(y_test, y_pred, average="macro")
+    if args.save_when=="accuracy": score=accuracy
+    elif args.save_when=="f1": score=f1
+    logger.info('=' * 70)
+    logger.info('****** Test result ******   loss : {:.3f}, accuracy : {:.3f}, f1 : {:.3f}'.format(test_loss, accuracy, f1))
 
 
     # save model prediction
@@ -155,14 +167,15 @@ def main():
 
     for i in range(args.num_labels):
         pred_df["weight_class_"+str(i)] = y_pred_probs[:, i]
-    pred_df.to_excel(os.path.join(args.res, model_name+"_"+args.type) + "/classification_result_test.xlsx") 
+    pred_df.to_excel(os.path.join(args.res, model_name+"_"+args.type, str(datetime.date.today())) + "/classification_result_test.xlsx") 
     accuracy = accuracy_score(y_test, y_pred)
     print("Accuracy on the Test set: {:.3f}".format(accuracy))
 
 
     # classification report
     logger.info("Classification Report")
-    logger.info("\n{}\n".format(classification_report(y_test, y_pred, target_names = class_values)))
+    logger.info("\n{}".format(classification_report(y_test, y_pred, target_names = class_values)))
+    logger.info('=' * 70)
 
 
     # confusion matrix
@@ -178,7 +191,7 @@ def main():
     plt.title('Confusion Matrix')
     plt.xlabel('Predicted')
     plt.ylabel('Truth')
-    plt.savefig(os.path.join(args.res, model_name+"_"+args.type, "confusion_matrix.png"))
+    plt.savefig(os.path.join(args.res, model_name+"_"+args.type, str(datetime.date.today())+"/confusion_matrix.png"))
 
     print("Classification Finished!")
 
