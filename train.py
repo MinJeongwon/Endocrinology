@@ -36,7 +36,7 @@ from models.model_roberta import EndoClsRoberta
 from utils import get_predictions, visualization, visualize_layerwise_embeddings
 
 # seed
-def seed_everything(seed: int = 42):
+def seed_everything(seed: int = 111):
     random.seed(seed)
     np.random.seed(seed)
     os.environ["PYTHONHASHSEED"] = str(seed)
@@ -153,6 +153,7 @@ def main():
     parser.add_argument('--lamb', default=0.3, type=float, help='lambda')
     parser.add_argument('--threshold', default=0.02, type=float, help='Threshold for keeping tokens. Denote as gamma in the paper.')
     parser.add_argument('--tau', default=1, type=float, help='Temperature for contrastive model.')
+    parser.add_argument('--version', default="1", type=str, help='version')
     parser.add_argument('--save_when', default="accuracy", type=str, help='')
     args = parser.parse_args()
     print(args)
@@ -171,9 +172,9 @@ def main():
     # log settings
     if "/" in args.model:
         model_name = args.model.replace("/", "_")
-        log_path = os.path.join(args.log, str(datetime.date.today()) + "_" + model_name)+"_"+args.type+".log"
+        log_path = os.path.join(args.log, str(datetime.date.today()) + "_" + model_name)+"_"+args.type+"_"+args.version+".log"
     else:
-        log_path = os.path.join(args.log, str(datetime.date.today()) + "_" + args.model+"_"+args.type+".log")
+        log_path = os.path.join(args.log, str(datetime.date.today()) + "_" + args.model+"_"+args.type+"_"+args.version+".log")
     logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s - %(message)s', 
                         datefmt = '%m/%d/%Y %H:%M:%S',
                         level = logging.INFO,
@@ -305,8 +306,8 @@ def main():
             
         condition = val_score >= best_score
         #print("val_score : {}".format(val_score), "best_score : {}".format(best_score))
-        if condition:
-            torch.save(model.state_dict(), os.path.join(args.checkpoint, model_name+"_"+args.type, str(datetime.date.today())) + "_best_performed.bin")
+        if condition:#TODO 여기 epoch==50일 때 즉 맨 마지막 이폭 체크포인트 저장해서 validation 돌려보기
+            torch.save(model.state_dict(), os.path.join(args.checkpoint, model_name+"_"+args.type, str(datetime.date.today())) +"_"+args.version+ "_best_performed.bin")
             best_score = val_score
             best_epoch = epoch + 1
             print("Saving best model({}={:.3f}) at Epoch {}".format(args.save_when, best_score, best_epoch))
@@ -321,8 +322,8 @@ def main():
     # result visualization
     assert len(history['train_acc'])==len(history['val_acc'])
     assert len(history['train_loss'])==len(history['val_loss'])
-    visualization(history['train_acc'], history['val_acc'], os.path.join(args.res, model_name+"_"+args.type, str(datetime.date.today())), "accuracy", ct=1)
-    visualization(history['train_loss'], history['val_loss'], os.path.join(args.res, model_name+"_"+args.type, str(datetime.date.today())), "loss", ct=2)
+    visualization(history['train_acc'], history['val_acc'], os.path.join(args.res, model_name+"_"+args.type, str(datetime.date.today())+"_"+args.version), "accuracy", ct=1)
+    visualization(history['train_loss'], history['val_loss'], os.path.join(args.res, model_name+"_"+args.type, str(datetime.date.today())+"_"+args.version), "loss", ct=2)
 
 
     # best score
@@ -331,7 +332,7 @@ def main():
 
 
     # load best model
-    model.load_state_dict(torch.load(os.path.join(args.checkpoint, model_name+"_"+args.type, str(datetime.date.today())) + "_best_performed.bin"))
+    model.load_state_dict(torch.load(os.path.join(args.checkpoint, model_name+"_"+args.type, str(datetime.date.today())) +"_"+args.version + "_best_performed.bin"))
     model = model.to(args.device)
 
 
@@ -353,7 +354,7 @@ def main():
     # append prediction probability for each class
     for i in range(len(encoded_classes)):
         df_dev["weight_class_"+str(i)] = y_pred_probs[:, i]
-    df_dev.to_excel(os.path.join(args.res, model_name+"_"+args.type, str(datetime.date.today())) + "/classification_result_dev.xlsx")
+    df_dev.to_excel(os.path.join(args.res, model_name+"_"+args.type, str(datetime.date.today())) +"_"+args.version+"/classification_result_dev.xlsx")
 
 
     # accuracy and classification report

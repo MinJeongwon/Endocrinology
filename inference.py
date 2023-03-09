@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 import torch
 from torch import cuda
+import torch.nn.functional as F
 from torch.utils.data import DataLoader, SequentialSampler
 
 from transformers import AutoTokenizer, AutoConfig
@@ -48,7 +49,7 @@ def get_predictions(model, data_loader, args, test_len):
             loss, preds = outputs[0], torch.max(outputs[1], dim=1)[1]
             sequences.extend(texts)
             predictions.extend(preds)
-            prediction_probs.extend(outputs[1])
+            prediction_probs.extend(F.softmax(outputs[1], dim=-1))
             real_values.extend(targets)
 
             if args.n_gpu > 1:
@@ -79,7 +80,7 @@ def main():
     parser.add_argument('--lamb', default=0.3, type=float, help='lambda')
     parser.add_argument('--threshold', default=0.02, type=float, help='Threshold for keeping tokens. Denote as gamma in the paper.')
     parser.add_argument('--tau', default=1, type=float, help='Temperature for contrastive model.')
-    parser.add_argument('--save_when', default="accuracy", type=str, help='')
+    parser.add_argument('--version', default="1", type=str, help='version')
     args = parser.parse_args()
     print(args)
 
@@ -91,9 +92,9 @@ def main():
     # log settings
     if "/" in args.model:
         model_name = args.model.replace("/", "_")
-        log_path = os.path.join(args.log, str(datetime.date.today()) + "_" + model_name)+"_"+args.type+".log"
+        log_path = os.path.join(args.log, str(datetime.date.today()) + "_" + model_name)+"_"+args.type+"_"+args.version+".log"
     else:
-        log_path = os.path.join(args.log, str(datetime.date.today()) + "_" + args.model+"_"+args.type+".log")
+        log_path = os.path.join(args.log, str(datetime.date.today()) + "_" + args.model+"_"+args.type+"_"+args.version+".log")
 
     # log settings
     logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s - %(message)s', 
@@ -142,19 +143,16 @@ def main():
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank], output_device=args.local_rank)
     elif args.n_gpu > 1:
         model = torch.nn.DataParallel(model)   
-    model.load_state_dict(torch.load(os.path.join(args.checkpoint, model_name+"_"+args.type, str(datetime.date.today())) + "_best_performed.bin", map_location = args.device))
+    model.load_state_dict(torch.load(os.path.join(args.checkpoint, model_name+"_"+args.type, str(datetime.date.today())) +"_"+args.version+ "_best_performed.bin", map_location = args.device))
     print("Model Loaded Successfully!")
 
 
     # start model prediction
     print("Classifying ...")
     _, y_pred, y_pred_probs, test_acc, test_loss, y_test = get_predictions(model, test_data_loader, args, test_dataset.__len__())
-    logger.info('=' * 70)
     accuracy = accuracy_score(y_test, y_pred)
     f1 = f1_score(y_test, y_pred, average="macro")
-    if args.save_when=="accuracy": score=accuracy
-    elif args.save_when=="f1": score=f1
-    logger.info('=' * 70)
+    logger.info('=' * 70+'\n')
     logger.info('****** Test result ******   loss : {:.3f}, accuracy : {:.3f}, f1 : {:.3f}'.format(test_loss, accuracy, f1))
 
 
@@ -167,7 +165,7 @@ def main():
 
     for i in range(args.num_labels):
         pred_df["weight_class_"+str(i)] = y_pred_probs[:, i]
-    pred_df.to_excel(os.path.join(args.res, model_name+"_"+args.type, str(datetime.date.today())) + "/classification_result_test.xlsx") 
+    pred_df.to_excel(os.path.join(args.res, model_name+"_"+args.type, str(datetime.date.today())) +"_"+args.version+ "/classification_result_test.xlsx") 
     accuracy = accuracy_score(y_test, y_pred)
     print("Accuracy on the Test set: {:.3f}".format(accuracy))
 
@@ -191,7 +189,7 @@ def main():
     plt.title('Confusion Matrix')
     plt.xlabel('Predicted')
     plt.ylabel('Truth')
-    plt.savefig(os.path.join(args.res, model_name+"_"+args.type, str(datetime.date.today())+"/confusion_matrix.png"))
+    plt.savefig(os.path.join(args.res, model_name+"_"+args.type, str(datetime.date.today()))+"_"+args.version+"/confusion_matrix.png")
 
     print("Classification Finished!")
 

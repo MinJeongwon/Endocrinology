@@ -12,22 +12,23 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
-                "--model", "dmis-lab/biobert-v1.1", 
+                "--model", "bert-base-uncased", 
                 "--source_data_dir", "./source/", 
                 "--max_sequence_len", "512",
                 "--type", "title_abst", 
                 "--num_labels", "6",
-                "--epoch", "3", 
-                "--train_batch_size", "16",
-                "--valid_batch_size", "16", 
+                "--epoch", "1", 
+                "--train_batch_size", "32",
+                "--valid_batch_size", "32", 
                 "--res", "outputs", 
                 "--log", "log", 
                 "--checkpoint", "checkpoint", 
                 "--lr", "2e-5", 
                 "--n_warmup_steps", "0", 
                 "--local_rank", "-1",
-                "--contrast_loss", "1",
-                "--save_when", "f1"
+                "--contrast_loss", "0",
+                "--save_when", "f1",
+                "--version", "0"
             ]
         }
     ]
