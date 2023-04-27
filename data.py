@@ -203,7 +203,60 @@ def split_data(args):
             dataset_excel = pd.read_excel("source/data.xlsx", engine="openpyxl", index_col=0)
             dataset_excel = dataset_excel.dropna(axis=0)
             dataset_excel = dataset_excel.sample(frac=1).reset_index(drop=True)
-            
+
+            diabetes_df = dataset_excel[dataset_excel["category"]=="diabetes"]
+            x_df = dataset_excel[dataset_excel["category"]=="x"]
+            bone_df = dataset_excel[dataset_excel["category"]=="bone"]
+            pituadrenal_df = dataset_excel[dataset_excel["category"]=="pitu/adrenal"]
+            thyroid_df = dataset_excel[dataset_excel["category"]=="thyroid"]
+            others_df = dataset_excel[dataset_excel["category"]=="others"]
+
+            total_diabetes = len(diabetes_df)
+            total_x = len(x_df)
+            total_bone = len(bone_df)
+            total_pituadrenal = len(pituadrenal_df)
+            total_thyroid = len(thyroid_df)
+            total_others = len(others_df)
+
+            train_dataset = pd.concat([diabetes_df[:int(total_diabetes*0.8)],\
+                                       x_df[:int(total_x*0.8)],\
+                                       bone_df[:int(total_bone*0.8)],\
+                                       pituadrenal_df[:int(total_pituadrenal*0.8)],\
+                                       thyroid_df[:int(total_thyroid*0.8)],\
+                                       others_df[:int(total_others*0.8)]])
+            train_dataset.to_csv(
+                                "source/train.csv",
+                                index = None,
+                                header=True
+                                ) 
+
+            dev_dataset = pd.concat([diabetes_df[int(total_diabetes*0.8):int(total_diabetes*0.9)],\
+                                     x_df[int(total_x*0.8):int(total_x*0.9)],\
+                                     bone_df[int(total_bone*0.8):int(total_bone*0.9)],\
+                                     pituadrenal_df[int(total_pituadrenal*0.8):int(total_pituadrenal*0.9)],\
+                                     thyroid_df[int(total_thyroid*0.8):int(total_thyroid*0.9)],\
+                                     others_df[int(total_others*0.8):int(total_others*0.9)]])
+            dev_dataset.to_csv(
+                                "source/dev.csv",
+                                index = None,
+                                header=True
+                                ) 
+
+            test_dataset = pd.concat([diabetes_df[int(total_diabetes*0.9):],\
+                                     x_df[int(total_x*0.9):],\
+                                     bone_df[int(total_bone*0.9):],\
+                                     pituadrenal_df[int(total_pituadrenal*0.9):],\
+                                     thyroid_df[int(total_thyroid*0.9):],\
+                                     others_df[int(total_others*0.9):]])
+            test_dataset.to_csv(
+                                "source/test.csv",
+                                index = None,
+                                header=True
+                                ) 
+
+
+
+            """
             total_n = len(dataset_excel)
             train_n, dev_n = int(total_n*0.8), int(total_n*0.9)
             
@@ -222,3 +275,4 @@ def split_data(args):
                                                 index = None,
                                                 header=True
                                                 ) 
+            """

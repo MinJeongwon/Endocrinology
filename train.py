@@ -6,6 +6,8 @@ from transformers import (
     AutoTokenizer, 
     AdamW, 
     get_linear_schedule_with_warmup,
+    get_polynomial_decay_schedule_with_warmup, 
+    get_cosine_schedule_with_warmup,
     logging
     )
 logging.set_verbosity_error()
@@ -13,7 +15,7 @@ logging.set_verbosity_error()
 import warnings
 warnings.filterwarnings('ignore') 
 
-from sklearn.metrics import accuracy_score, precision_score, f1_score, classification_report, recall_score, precision_recall_fscore_support, confusion_matrix #https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_recall_fscore_support.html
+from sklearn.metrics import accuracy_score, precision_score, f1_score, classification_report, recall_score, precision_recall_fscore_support #https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_recall_fscore_support.html
 from collections import defaultdict
 from tqdm import tqdm
 import time
@@ -28,6 +30,7 @@ import random
 import logging
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from torch import nn
+import torch.optim as optim
 
 from data import split_data, EndoDataset
 from models.model_bert import EndoClsBert
@@ -44,6 +47,15 @@ def seed_everything(seed: int = 111):
     torch.cuda.manual_seed(seed)  # type: ignore
     torch.backends.cudnn.deterministic = True  # type: ignore
     torch.backends.cudnn.benchmark = True  # type: ignore
+
+
+def str2bool(v):
+	if v.lower() in ('yes', 'true', 't', 'y', '1'):
+		return True
+	elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+		return False
+	else:   
+		raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
 #Training function
@@ -82,7 +94,9 @@ def train(model, data_loader, optimizer, device, scheduler, n_examples, epoch, a
         scheduler.step()
         optimizer.zero_grad()
 
-        if (epoch==0 or (epoch+1)%10==0) and (30<batch_idx<61):
+        
+        if (epoch==0 or (epoch+1)==args.epoch) and (30<batch_idx<61):
+        #if (30<batch_idx<61):
             if type(layerwise_hidden_states) == type(None):
                     layerwise_hidden_states = tuple(layer_hidden_states.cpu() for layer_hidden_states in outputs[2])
                     layerwise_attn_mask = attention_mask.cpu()
@@ -93,8 +107,9 @@ def train(model, data_loader, optimizer, device, scheduler, n_examples, epoch, a
                 layerwise_attn_mask = torch.cat([layerwise_attn_mask, attention_mask.cpu()])
                 layerwise_label = torch.cat([layerwise_label, targets.cpu()])
 
-    if (epoch==0) or ((epoch+1)%10==0):
+    if (epoch==0) or ((epoch+1)==args.epoch):
         visualize_layerwise_embeddings(layerwise_hidden_states, layerwise_attn_mask, layerwise_label, epoch, args)
+    #visualize_layerwise_embeddings(layerwise_hidden_states, layerwise_attn_mask, layerwise_label, epoch, args)
 
     return correct_predictions / n_examples, np.mean(losses), np.mean(precisions), np.mean(recalls), np.mean(f1s)
 
@@ -138,23 +153,37 @@ def main():
     parser.add_argument('--model', type=str, default='bert-base-uncased')
     parser.add_argument('--source_data_dir', type=str, default='source')
     parser.add_argument('--max_sequence_len', type=int, default=512)
-    parser.add_argument('--type', type=str, default="tytle_abst")
+    parser.add_argument('--type', type=str, default="title_abst")
     parser.add_argument('--num_labels', type=int, default=6, help="Number of classes of the fine-tuned model")
     parser.add_argument('--epoch', type=int, default=2)
-    parser.add_argument('--train_batch_size', type=int, default=64)
-    parser.add_argument('--valid_batch_size', type=int, default=64)
+    parser.add_argument('--train_batch_size', type=int, default=28)
+    parser.add_argument('--valid_batch_size', type=int, default=28)
     parser.add_argument('--res', type=str, default='outputs')
     parser.add_argument('--log', type=str, default='log')
     parser.add_argument('--checkpoint', type=str, default='checkpoint')
     parser.add_argument('--lr', type=float, default=2e-5)
+    parser.add_argument('--weight_decay', type=float, default=0.0)
     parser.add_argument('--n_warmup_steps', type=int, default=0)
+    parser.add_argument('--scheduler', type=str, default="org", help="Scheduler options")
     parser.add_argument("--local_rank", type=int, default=-1, help="local_rank for distributed training on gpus")
     parser.add_argument('--contrast_loss', default=0, type=int, help='Whether use contrastive model.')
-    parser.add_argument('--lamb', default=0.3, type=float, help='lambda')
-    parser.add_argument('--threshold', default=0.02, type=float, help='Threshold for keeping tokens. Denote as gamma in the paper.')
+    parser.add_argument('--dropout_prob', default=0.2, type=float, help='Classifier dropout probability')
+    parser.add_argument('--lamb', default=0.1, type=float, help='Weight for contrastive loss.')
+    parser.add_argument('--threshold', default=0.05, type=float, help='Threshold for keeping tokens. Denote as gamma in the paper.')
     parser.add_argument('--tau', default=1, type=float, help='Temperature for contrastive model.')
-    parser.add_argument('--version', default="1", type=str, help='version')
+    parser.add_argument('--loss_weight', type=int, default=0, help="Whether to use weight for cross entropy")
+    parser.add_argument('--focal_loss', default=0, type=int, help='Whether to use focal loss')
+    parser.add_argument('--class0_loss_w', type=float, default=0.9, help="Loss weight for `bone` class")
+    parser.add_argument('--class1_loss_w', type=float, default=0.6, help="Loss weight for `diabetes` class")
+    parser.add_argument('--class2_loss_w', type=float, default=0.8, help="Loss weight for `not endocrinology-related` class")
+    parser.add_argument('--class3_loss_w', type=float, default=0.9, help="Loss weight for `others` class")
+    parser.add_argument('--class4_loss_w', type=float, default=1., help="Loss weight for `pituitary adrenal` class")
+    parser.add_argument('--class5_loss_w', type=float, default=0.9, help="Loss weight for `thyroid` class")
+    parser.add_argument('--version', default="0", type=str, help='version')
     parser.add_argument('--save_when', default="accuracy", type=str, help='')
+    parser.add_argument('--layerwise_pooling', default=False, type=str2bool, help='whether to use layerwise pooling')
+    parser.add_argument('--pooler_type', default="cls", type=str, help='What kind of pooler to use (cls, cls_before_pooler, avg, avg_top2, avg_first_last).')
+    parser.add_argument('--last_ckpt', default=0, type=int, help='Whether to save the last checkpoint')
     args = parser.parse_args()
     print(args)
 
@@ -166,6 +195,7 @@ def main():
     model_name = args.model.replace("/", "_") if "/" in args.model else args.model
     os.makedirs(args.log, exist_ok=True)
     os.makedirs(os.path.join(args.res, model_name+"_"+args.type), exist_ok=True)
+    os.makedirs(os.path.join(args.res, model_name+"_"+args.type, str(datetime.date.today())+"_"+args.version), exist_ok=True)
     os.makedirs(os.path.join(args.checkpoint, model_name+"_"+args.type), exist_ok=True)
 
 
@@ -208,6 +238,28 @@ def main():
     class_dict = dict(sorted(class_dict.items()))
     logger.info("Label Encoding: " + str(classes) + "-->" + str(np.sort(encoded_classes)))
     class_values = list(class_dict.values())
+    new_class_names = {"bone": "Bone & Calcium Metabolism",
+                       "diabetes": "Diabetes & Metabolic Disease",
+                       "pituitary adrenal": "Pituitary & Adrenal Disease",
+                       "thyroid": "Thyroid Disease", 
+                       "others": "Other Endocrine Disease",
+                       "not endocrinology-related": "Unrelated Article"}
+    class_values = [new_class_names[old] for old in class_values]
+    for k, _ in class_dict.items():
+        class_dict[k] = new_class_names[class_dict[k]]
+
+
+    # loss weight for cross entropy
+    if not args.loss_weight:
+        loss_weight = None
+    elif args.class0_loss_w<1:
+        train_df = train_dataset.get_dataframe()
+        class_dict_reversed = {v:k for k,v in class_dict.items()}
+        class_num_list = [len(train_df[train_df['category']==cate]) for cate in class_values]
+        loss_weight = [round(1 - (x / sum(class_num_list)), 1) for x in class_num_list] #version 4
+        loss_weight = [round(weight/sum(loss_weight), 2) for weight in loss_weight] #version 4_1
+    else:
+        loss_weight = [args.class0_loss_w, args.class1_loss_w, args.class2_loss_w, args.class3_loss_w, args.class4_loss_w, args.class5_loss_w]
 
 
     # model
@@ -216,7 +268,7 @@ def main():
         model = EndoClsRoberta.from_pretrained(args.model, config=config, num_labels=args.num_labels) 
     else:
         model = EndoClsBert.from_pretrained(args.model, config=config, args=args, tokenizer=tokenizer, num_labels=args.num_labels, \
-                                            label_dict=class_dict, contrast_loss=args.contrast_loss, lamb=args.lamb, tau=args.tau, threshold=args.threshold) 
+                                            label_dict=class_dict, contrast_loss=args.contrast_loss, lamb=args.lamb, tau=args.tau, threshold=args.threshold, loss_weight=loss_weight) 
     if args.local_rank == -1:
         args.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     args.n_gpu = torch.cuda.device_count()
@@ -247,13 +299,39 @@ def main():
 
 
     # optimizer
-    optimizer = AdamW(params=model.parameters(), lr=args.lr)
+    optimizer = AdamW(params=model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     total_steps = len(train_data_loader) * args.epoch
-    scheduler = get_linear_schedule_with_warmup(
+    if args.scheduler == "org":
+        scheduler = get_linear_schedule_with_warmup(
                     optimizer,
                     num_warmup_steps = args.n_warmup_steps,
                     num_training_steps = total_steps
                     )
+    elif args.scheduler == "warmup":
+        scheduler = get_linear_schedule_with_warmup(
+                    optimizer,
+                    num_warmup_steps = (len(train_dataset)//args.train_batch_size) * 5, #2_1: (len(train_dataset)//args.train_batch_size) * 5
+                    num_training_steps = total_steps
+                    )
+    elif args.scheduler == "polynomial":
+        power = 3.0
+        scheduler = get_polynomial_decay_schedule_with_warmup(
+                    optimizer, 
+                    num_warmup_steps=(len(train_dataset)//args.train_batch_size)*5, 
+                    num_training_steps=total_steps,
+                    power=power
+                    )
+    elif args.scheduler == "cosine":
+        scheduler = get_cosine_schedule_with_warmup(
+                    optimizer, 
+                    num_warmup_steps=(len(train_dataset) // args.train_batch_size) * 4, 
+                    num_training_steps=total_steps
+                    )
+    elif args.scheduler == "lambdalr":
+        lambda1 = lambda epoch: 0.99 ** epoch
+        scheduler = optim.lr_scheduler.LambdaLR(optimizer, lambda1)
+    else:
+        scheduler = None
 
 
     # store best score
@@ -282,7 +360,7 @@ def main():
                                             epoch,
                                             args
                                             )
-        logger.info('****** Train result ******   loss : {:.3f}, accuracy : {:.3f}, f1 : {:.3f}'.format(train_loss, train_acc, train_f1))
+        logger.info('****** Train result ******   loss : {:.3f}, accuracy : {:.3f}, precision : {:.3f}, recall : {:.3f}, f1 : {:.3f}'.format(train_loss, train_acc, train_pre, train_recall, train_f1))
 
         val_acc, val_loss, val_pre, val_recall, val_f1 = eval(
                                     model,
@@ -291,7 +369,7 @@ def main():
                                     dev_dataset.__len__(),
                                     args
                                     )
-        logger.info('****** Validation result ******   loss : {:.3f}, accuracy : {:.3f}, f1 : {:.3f}'.format(val_loss, val_acc, val_f1))
+        logger.info('****** Validation result ******   loss : {:.3f}, accuracy : {:.3f}, precision : {:.3f}, recall : {:.3f}, f1 : {:.3f}'.format(val_loss, val_acc, val_pre, val_recall, val_f1))
         #logger.info('=' * 70)
 
         history['train_acc'].append(train_acc)
@@ -303,10 +381,16 @@ def main():
             val_score = val_acc
         elif args.save_when=="f1":
             val_score = val_f1
+        elif args.save_when=="precision":
+            val_score = val_pre
+        elif args.save_when=="recall":
+            val_score = val_recall
             
-        condition = val_score >= best_score
-        #print("val_score : {}".format(val_score), "best_score : {}".format(best_score))
-        if condition:#TODO 여기 epoch==50일 때 즉 맨 마지막 이폭 체크포인트 저장해서 validation 돌려보기
+        condition = val_score > best_score
+        if args.last_ckpt:
+            condition = epoch+1==args.epoch
+
+        if condition:
             torch.save(model.state_dict(), os.path.join(args.checkpoint, model_name+"_"+args.type, str(datetime.date.today())) +"_"+args.version+ "_best_performed.bin")
             best_score = val_score
             best_epoch = epoch + 1
@@ -360,9 +444,13 @@ def main():
     # accuracy and classification report
     logger.info('=' * 70)
     accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred, average="macro")
+    recall = recall_score(y_test, y_pred, average="macro")
     f1 = f1_score(y_test, y_pred, average="macro")
     if args.save_when=="accuracy": score=accuracy
     elif args.save_when=="f1": score=f1
+    elif args.save_when=="precision": score=precision
+    elif args.save_when=="recall": score=recall
 
     print("Best {} on the Validation set: {:.3f}".format(args.save_when, score))
     logger.info("Classification Report")

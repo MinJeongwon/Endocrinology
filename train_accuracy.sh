@@ -1,2 +1,0 @@
-python inference.py --model dmis-lab/biobert-v1.1 --test source/test.csv --log log --type title_abst --num_labels 6 --test_batch_size 32 --res outputs --checkpoint checkpoint --version 2 --contrast_loss 0 && \
-python inference.py --model bert-base-uncased --test source/test.csv --log log --type title_abst --num_labels 6 --test_batch_size 32 --res outputs --checkpoint checkpoint --version 2 --contrast_loss 0

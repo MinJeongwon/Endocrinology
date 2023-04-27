@@ -14,21 +14,24 @@
             "args": [
                 "--model", "bert-base-uncased", 
                 "--source_data_dir", "./source/", 
-                "--max_sequence_len", "512",
+                "--max_sequence_len", "512", 
                 "--type", "title_abst", 
-                "--num_labels", "6",
+                "--num_labels", "6", 
                 "--epoch", "1", 
-                "--train_batch_size", "32",
-                "--valid_batch_size", "32", 
+                "--train_batch_size", "28", 
+                "--valid_batch_size", "28", 
                 "--res", "outputs", 
                 "--log", "log", 
-                "--checkpoint", "checkpoint", 
+                "--checkpoint", "checkpoint",
                 "--lr", "2e-5", 
                 "--n_warmup_steps", "0", 
-                "--local_rank", "-1",
-                "--contrast_loss", "0",
-                "--save_when", "f1",
-                "--version", "0"
+                "--local_rank", "-1", 
+                "--version", "0", 
+                "--contrast_loss", "1", 
+                "--lamb", "0.5", 
+                "--threshold", "0.01", 
+                "--tau", "1", 
+                "--last_ckpt", "1"
             ]
         }
     ]
