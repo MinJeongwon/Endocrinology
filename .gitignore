@@ -11,4 +11,7 @@ source_balanced
 *.outputs
 *.sh
 scripts.txt
+nohup3.txt
+nohup4.txt
 train_dev_merge.py
+training_continue.py
